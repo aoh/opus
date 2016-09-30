@@ -18,5 +18,7 @@ python test/usage.py || exit 1
 
 kill -9 %1 || true
 
+echo "Everything seems to be in order"
+
 exit 0
 
