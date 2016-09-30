@@ -1,5 +1,17 @@
 #!/bin/bash
 
+fail() {
+   echo "Fail: " $@
+   exit 1
+}
+
+for pid in $(pgrep -f 'ol --run opus')
+do
+   kill -9 $pid
+   echo "Closing PID $pid"
+   sleep 1
+done
+
 $@ --ephemereal -U test -P pass -p 9000 &
 
 python test/usage.py || exit 1
