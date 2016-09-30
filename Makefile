@@ -12,8 +12,13 @@ USR_BIN_OL=/usr/bin/ol
 bin/opus: c/opus.c
 	$(CC) $(CFLAGS) -O2 -o bin/opus c/opus.c 
 
-c/opus.c: opus/*.scm bin/ol
+c/opus.c: opus/*.scm bin/ol kal
 	bin/ol $(OFLAGS) -o c/opus.c opus/main.scm
+
+kal:
+	mkdir -p ext
+	cd ext && git clone https://github.com/aoh/kal.git
+	ln -s ext/kal/kal
 
 bin/ol:
 	mkdir -p tmp c bin
