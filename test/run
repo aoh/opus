@@ -1,6 +1,6 @@
 #!/bin/bash
 
-bin/ol --run opus/main.scm &
+$@ &
 
 python test/usage.py || exit 1
 

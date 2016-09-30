@@ -28,3 +28,5 @@ bin/ol:
 	gzip -d < tmp/$(OWL).c.gz > c/$(OWL).c
 	cc $(CFLAGS) -o bin/ol c/$(OWL).c
 
+sure:
+	test/run opus/main.scm

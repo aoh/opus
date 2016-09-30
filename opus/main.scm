@@ -1,3 +1,5 @@
+#!/usr/bin/ol --run
+
 (import
   (opus http)
   (opus html)
