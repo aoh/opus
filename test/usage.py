@@ -7,6 +7,14 @@ browser.get('http://localhost:9000')
 
 assert 'opus' in browser.title
 
+def fail_login(user, password):
+   browser.get('http://localhost:9000/login')
+   browser.find_element_by_name('login').send_keys(user)
+   browser.find_element_by_name('password').send_keys(password + Keys.RETURN)
+   assert user + "@opus" not in browser.title
+   assert "Hello " + user + "!" not in browser.page_source
+   return
+   
 def login(user, password):
    browser.get('http://localhost:9000/login')
    elem = browser.find_element_by_name('login')
@@ -31,6 +39,9 @@ def see(str):
 def search(str):
    browser.find_element_by_name('q').send_keys(str + Keys.RETURN)
 
+fail_login("test", "bad")
+fail_login("bad", "pass")
+fail_login("xxx", "xxx")
 login("test", "pass")
 
 search("sisalto")
@@ -41,6 +52,14 @@ add_new_blag("testi", "# toka testisivu\nsisalto myos")
 
 search("sisalto")
 see("2 matches")
+
+add_new_blag("foobarbaz", "# ABC\n#foo #bar #baz")
+add_new_blag("barbaz", "# BC\n#bar #baz")
+add_new_blag("foobaz", "# AC\n#foo #baz")
+add_new_blag("foobar", "# AB\n#foo #bar")
+add_new_blag("foo", "# A\n#foo")
+add_new_blag("bar", "# B\n#bar")
+add_new_blag("baz", "# C\n#baz")
 
 browser.quit()
 
