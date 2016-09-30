@@ -1,6 +1,6 @@
 #!/bin/bash
 
-$@ --ephemereal &
+$@ --ephemereal -U test -P pass -p 9000 &
 
 python test/usage.py || exit 1
 

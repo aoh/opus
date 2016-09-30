@@ -1031,6 +1031,11 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
 (print "And now, (start 80 \"opus.log\" \"blag.fasl\" #f #f) or (restart)")
 (print "Dev run (start 9000 #f #f \"test\" \"pass\") and (restart)")
 
+(define (string->port str)
+   (let ((n (string->integer str)))
+      (if (and n (> n 0) (< n 65536))
+         n
+         #false)))
 
 ;;; 
 ;;; Command Line
@@ -1040,6 +1045,11 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
 
 (define command-line-rule-exp
    `((help "-h" "--help" comment "get help")
+     (user "-U" "--user" has-arg comment "initial user name")
+     (password "-P" "--password" has-arg comment "initial user password")
+     (port "-p" "--port" cook ,string->port
+        default "80"
+        comment "specify port to run on")
      (ephemereal "-E" "--ephemereal"
         comment "start with empty db and do not persist anything")))
 
@@ -1053,17 +1063,26 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
 (define (start-opus dict args)
    (start-symbol-interner initial-symbols) ;; (re)start symbol interning
    (cond
+      ((getf dict 'help)
+         (print-usage))
       ((not (null? args))
          (print "What are these? -> " args)
          1)
       ((getf dict 'ephemereal)
-         (print "Starting ephemereal test server to port 9000 (only via repl for now)")
          ;; note: should be made O(1)
-         (start 9000 #f #f "test" "pass")
-         ;; notify possible crashes
-         (let loop () (print (wait-mail)) (loop)))
+         (lets ((user (getf dict 'user))
+                (pass (getf dict 'password))
+                (port (getf dict 'port)))
+            (if (and user pass port)
+               (begin
+                  (print "Starting ephemereal server on port " port ", user " user ", pass " pass)
+                  (start port #f #f user pass)
+                  (let loop () (print (wait-mail)) (loop)))
+               (begin
+                  (print "You need to specify user, password and port")
+                  1))))
       (else
-         (print "No persisted mode disabled for now. Use -E.")
+         (print "No persisted mode for now. Use -E to test.")
          1)))
 
 (lambda (args) 
