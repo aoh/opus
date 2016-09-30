@@ -1,6 +1,6 @@
 #!/bin/bash
 
-$@ &
+$@ --ephemereal &
 
 python test/usage.py || exit 1
 

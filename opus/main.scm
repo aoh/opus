@@ -9,6 +9,7 @@
   (opus search)
   (opus blag)
   (opus db)
+  (owl args)
   (only (kal main) kal-string))
 
 (define ssl-only #false)
@@ -971,15 +972,16 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
       (log-request-info router env)))
 
 (define (backupper path last)
-   (if path
-      (let ((db (get-db)))
-         (if (not (eq? db last))
+   (let ((db (get-db)))
+      (if (not (eq? db last))
+         (if path
             (begin
-               (print "backupper noticed changes")
-               (print " - backup: " (db-save (str "backup/" (time) ".fasl")))
-               (print " - fasl: " (db-save path))))
-         (sleep 360000)
-         (backupper path db))))
+               (log "backupper noticed changes")
+               (log " - backup: " (db-save (str "backup/" (time) ".fasl")))
+               (log " - fasl: " (db-save path)))
+            (print "backupper would have stored changes")))
+      (sleep 360000)
+      (backupper path db)))
 
 ;; todo: should run this in a separate thread to kickstart parts as needed
 (define (start port logfile fasl-file user pass)
@@ -1029,15 +1031,43 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
 (print "And now, (start 80 \"opus.log\" \"blag.fasl\" #f #f) or (restart)")
 (print "Dev run (start 9000 #f #f \"test\" \"pass\") and (restart)")
 
-;; todo: cmdline startup
-;; interning not done yet
-(lambda (args) 
-   (print "Starting ephemereal test server to port 9000 (only via repl for now)")
-   ;; note: should be made O(1)
+
+;;; 
+;;; Command Line
+;;; 
+
+(define usage-text "opus [args]")
+
+(define command-line-rule-exp
+   `((help "-h" "--help" comment "get help")
+     (ephemereal "-E" "--ephemereal"
+        comment "start with empty db and do not persist anything")))
+
+(define command-line-rules
+   (cl-rules command-line-rule-exp))
+
+(define (print-usage)
+   (print usage-text)
+   (print (format-rules command-line-rules)))
+
+(define (start-opus dict args)
    (start-symbol-interner initial-symbols) ;; (re)start symbol interning
-   (start 9000 #f #f "test" "pass")
-   (let loop ()
-      (print (wait-mail))
-      (loop)))
+   (cond
+      ((not (null? args))
+         (print "What are these? -> " args)
+         1)
+      ((getf dict 'ephemereal)
+         (print "Starting ephemereal test server to port 9000 (only via repl for now)")
+         ;; note: should be made O(1)
+         (start 9000 #f #f "test" "pass")
+         ;; notify possible crashes
+         (let loop () (print (wait-mail)) (loop)))
+      (else
+         (print "No persisted mode disabled for now. Use -E.")
+         1)))
+
+(lambda (args) 
+   (process-arguments (cdr args)
+       command-line-rules usage-text start-opus))
 
 
