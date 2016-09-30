@@ -663,7 +663,6 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                      (if cookie (s/^sid=// cookie) #f)))))
      (if val
         (let ((id (whois val)))
-           (print "identity of " val " is " id)
            (if id
              (-> env 
                (put 'id id)
@@ -1012,18 +1011,29 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
       (interact 'serveri stop))
     (print "FAILED TO SAVE DATA")))
 
+(print "Collecting symbols...")
+;; all currently interned symbols
+(define initial-symbols 
+   (define (collect node tail)
+      (if node
+         (cons (ref node 2)
+            (collect (ref node 1)
+               (collect (ref node 3) tail)))
+         tail))
+   (collect (ref (interact 'intern null) 2) null))
+
+(print "Initial symbols: " (length initial-symbols))
+
 (print "And now, (start 80 \"opus.log\" \"blag.fasl\" #f #f) or (restart)")
 (print "Dev run (start 9000 #f #f \"test\" \"pass\") and (restart)")
-
-(define initial-symbols 
-   '())
 
 ;; todo: cmdline startup
 ;; interning not done yet
 (lambda (args) 
    (print "Starting ephemereal test server to port 9000 (only via repl for now)")
+   ;; note: should be made O(1)
+   (start-symbol-interner initial-symbols) ;; (re)start symbol interning
    (start 9000 #f #f "test" "pass")
-   (start-symbol-interner initial-symbols)
    (let loop ()
       (print (wait-mail))
       (loop)))
