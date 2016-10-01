@@ -909,8 +909,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                  ((not node)
                     (fail env 404 "No such blag entry"))
                  ((unreadable? env node)
-                    (opus-handler env
-                       '(p "This entry is not currently public.")))
+                    (no-permission env "/"))
                  (else
                     (opus-handler env
                        (blag-edit env id node))))))

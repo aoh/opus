@@ -30,3 +30,6 @@ bin/ol:
 
 sure:
 	test/run opus/main.scm
+
+verysure: bin/opus
+	test/run bin/opus
