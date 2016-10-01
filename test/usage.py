@@ -1,5 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
+import time
 
 browser = webdriver.Firefox()
 
@@ -60,6 +61,9 @@ def search(str):
 def goto(str):
    browser.get('http://localhost:9000/n/' + str)
 
+def goto_raw(str):
+   browser.get('http://localhost:9000/' + str)
+   
 def add_user(name, hash, session):
    browser.find_element_by_link_text('new').click()
    browser.find_element_by_name("id").send_keys(name)
@@ -214,6 +218,25 @@ add_kal("kalenx", "every day: foo\n every day: bar")
 goto("kalenx")
 see("every day")
 see("Monday, week")
+
+# webroot and directory traversal tests
+goto_raw("f/hello.txt")
+see("Hello, world!")
+goto_raw("f/../webroot/hello.txt")
+see_fail()
+goto_raw("f/../../../../../../etc/passwd")
+see_fail()
+goto_raw("../../../../../../../etc/passwd")
+see_fail()
+goto_raw("../../../../../../../etc/passwd")
+see_fail()
+goto_raw("f/./hello.txt")
+see("Hello, world!")
+goto_raw("f/./../.../...../......./........./etc/passwd")
+see_fail()
+
+add_new_blag("success", "# SUCCCESS\nEverything seems to be in order")
+time.sleep(1)
 
 # see("slartibartfast") # break to see state for new tests
 

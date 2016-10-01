@@ -10,6 +10,7 @@
   (opus blag)
   (opus db)
   (owl args)
+  (owl sys)
   (only (kal main) kal-string))
 
 (define ssl-only #false)
@@ -679,6 +680,12 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
          (failure '(p "You have no permission to do that you silly person.") rpath))
       401))
 
+(define (not-there env rpath)
+   (http-status
+      (opus-handler env
+         (failure '(p "There is no such anything.") rpath))
+      404))
+
 (define (render-node node)  
   (let ((ser (make-serializer empty)))
     (list->vector
@@ -707,24 +714,20 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
          ((m/html?/ suf) "text/html")
          (else "application/octet-stream"))))
             
-(define (maybe-upload env path)
+(define (maybe-upload opts env path)
    (cond
       ((m/\.\./ path)
-         (-> env
-            (put 'status 404)
-            (put 'reseponse-type "text/html")
-            (put 'content "404: no")))
-      ((file->vector (str "/home/aki/files/" path)) =>
-         (λ (data)
-            (-> env
-               (put 'status 200)
-               (put 'response-type (mime-type-of path))
-               (put 'content data))))
+         (not-there env "/"))
+      ((getf opts 'webroot) =>
+         (lambda (webroot)
+            (if-lets ((data (file->vector (str webroot "/" path))))
+               (-> env
+                  (put 'status 200)
+                  (put 'response-type (mime-type-of path))
+                  (put 'content data))
+               (not-there env "/"))))
       (else
-         (-> env
-            (put 'status 404)
-            (put 'reseponse-type "text/html")
-            (put 'content "404: no such thing")))))
+         (not-there env "/"))))
 
 (define (salty-hash a b)
    (sha256 (str "%n" a b)))
@@ -762,173 +765,167 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                        (opus-greeting maybe-id))))
               (opus-handler-nosession env opus-login)))
         (opus-handler-nosession env opus-login))))
-      
-(define (router env)
-   ;(print "ROUTER GOT " env)
+
+(define (opus-save env)
    (lets 
-     ((env
-        (-> env
-          (add-response-header 'x-frame-options "SAMEORIGIN")
-          (add-response-header 'X-XSS-Protection "1; mode=block")
-          (add-response-header 'X-Content-Type-Options "nosniff")
-          (add-response-header 'Content-Security-Policy "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'")))
-      (env
-         (if (and ssl-only (localhost? (getf env 'ip)))
-            (add-response-header env 'Strict-Transport-Security "max-age=31536000")
-            env)))
-     (query-case (getf env 'query)
-        (M/\/favicon\.ico/ ()
-           (-> env
-              (put 'content favicon)
-              (put 'response-type "image/x-icon")))
-        (M/\// ()
-           (front-handler env))
-        (M/\/index/ ()
-           (opus-handler env (opus-index env "")))
-        (M/\/index\/(.*)/ (tags)
-           (opus-handler env (opus-index env tags)))
-        (M/\/humans\.txt/ ()
-           (-> env
-              (put 'content humans)
-              (put 'response-type "text/plain")))
-        (M/\/n\/new/ ()
-           (opus-handler env blag-post-new))
-        (M/\/n\/save/ ()
-             (lets 
-                ((data (getf env 'post-params))
-                 (body (if data (alist-ref data "body" #false) #false))
-                 (op (if data (alist-ref data "op" #false) #false))
-                 (type (if data (alist-ref data "type" #false) #false))
-                 (id (string->id (if data (alist-ref data "id" "") "")))
-                 (serial (string->number (if data (alist-ref data "serial" "") "")))
-                 (old-node (db-get id)))
-               (if (or (and (not old-node) (getf env 'id)) ;; any logged in user can create
-                       (and old-node (eq? (getf env 'id) (getf old-node 'owner))) ;; owner can write
-                       (and old-node (has-key? env id))) ;; user has a key for this particular node
-                  (if (and data body op serial)
-                    (lets ((ok? val (opus-parse-with-semantics env id type body)))
-                      (cond
-                        ((not ok?)
-                          (opus-handler env
-                            (failure 
-                              `(p "The computer says no. " ,(str val))
-                              "/")))
-                        ((equal? op "save")
-                          (if id
-                             (lets
-                                ;; user node adds the owner itself
-                                ((me (getf env 'id))
-                                 (val (if (getf val 'owner)
-                                          val
-                                          (put val 'owner (if old-node (get old-node 'owner me) me))))
-                                 (val (put val 'serial serial))
-                                 (res (db-put id val)))
-                                (if res
-                                   (blag-entry env id (getf val 'title)
-                                      `(cat ,(post-buttons env id val #false) ,(getf val 'node))
-                                      (success-note `(cat "Entry " (i ,id) " updated.") id))
-                                   (let ((node (db-get id)))
-                                      (blag-entry env id (getf node 'title)
-                                         `(cat ,(post-buttons env id val #false) ,(getf val 'node))
-                                         (failure-note `(cat "Edit collision - this is the current version") id)))))
-                             ;; no id, take next free
-                             (let ((id (db-add (put val 'owner (getf env 'id)))))
-                                (opus-handler env
-                                  (success (str "Entry " id " created.") 
-                                     (str "/n/" id))))))
-                        (else
-                          (opus-handler env
-                            (failure '(p "What?") "/")))))
-                    (opus-handler env
-                      (failure '(p "The computer says " (code "no") ".") "/")))
-                (no-permission env "/"))))
-        (M/\/pic\/([a-z0-9A-Z]+)\.jpeg/ (name)
-           (let ((fd (open-input-file (foldr string-append "" (list opus-prefix "/pic/" name ".jpeg")))))
-              (if fd
-                 (-> env
-                    (put 'content (force-ll (port->block-stream fd)))
-                    (put 'response-type "image/jpeg"))
-                 (fail env 404 "There is no such thing"))))
-        (M/\/aoh\/?/ ()
-           (front-handler env))
-        (M/\/n\/([0-9a-zA-Z-]*)/ (ids)
-           (let ((n (string->id ids)))
-               (let ((node (db-get n)))
-                  (cond
-                     ((not node)
-                        (fail env 404 "No such blag entry"))
-                     ((unreadable? env node)
-                        (opus-handler env
-                          '(p "You can't read this.")))
-                     (else
-                        (blag-entry env n (getf node 'title) 
-                          `(cat ,(post-buttons env n node #false) ,(getf node 'node))
-                          #f))))))
-        (M/\/n\/([0-9a-zA-Z-]*)\.([a-z0-9]+)/ (ids type)
-           (let ((n (string->id ids)))
-               (let ((node (db-get n)))
-                  (cond
-                     ((not node)
-                        (fail env 404 "No such blag entry"))
-                     ((unreadable? env node)
-                        (fail env 403 "You can't access this."))
-                     ((equal? type "txt")
-                        (-> env
-                           (put 'content (get node 'text ""))
-                           (put 'response-type "text/plain; charset=utf-8")))
-                     ((equal? type "owl")
-                        (-> env
-                           (put 'content (render-node node))
-                           (put 'response-type "text/plain; charset=utf-8")))
-                     (else
-                        (fail env 418 "Semantics lacking."))))))
-        (M/\/n\/delete\/([0-9a-zA-Z-]*)/ (ids)
-           (lets ((n (string->id ids)))
-               (if (can-delete? (getf env 'id) n)
-                 (let ((node (db-del n)))
-                    (if node
-                       ;; should go to index instead
+       ((data (getf env 'post-params))
+        (body (if data (alist-ref data "body" #false) #false))
+        (op (if data (alist-ref data "op" #false) #false))
+        (type (if data (alist-ref data "type" #false) #false))
+        (id (string->id (if data (alist-ref data "id" "") "")))
+        (serial (string->number (if data (alist-ref data "serial" "") "")))
+        (old-node (db-get id)))
+      (if (or (and (not old-node) (getf env 'id)) ;; any logged in user can create
+              (and old-node (eq? (getf env 'id) (getf old-node 'owner))) ;; owner can write
+              (and old-node (has-key? env id))) ;; user has a key for this particular node
+         (if (and data body op serial)
+           (lets ((ok? val (opus-parse-with-semantics env id type body)))
+             (cond
+               ((not ok?)
+                 (opus-handler env
+                   (failure 
+                     `(p "The computer says no. " ,(str val))
+                     "/")))
+               ((equal? op "save")
+                 (if id
+                    (lets
+                       ;; user node adds the owner itself
+                       ((me (getf env 'id))
+                        (val (if (getf val 'owner)
+                                 val
+                                 (put val 'owner (if old-node (get old-node 'owner me) me))))
+                        (val (put val 'serial serial))
+                        (res (db-put id val)))
+                       (if res
+                          (blag-entry env id (getf val 'title)
+                             `(cat ,(post-buttons env id val #false) ,(getf val 'node))
+                             (success-note `(cat "Entry " (i ,id) " updated.") id))
+                          (let ((node (db-get id)))
+                             (blag-entry env id (getf node 'title)
+                                `(cat ,(post-buttons env id val #false) ,(getf val 'node))
+                                (failure-note `(cat "Edit collision - this is the current version") id)))))
+                    ;; no id, take next free
+                    (let ((id (db-add (put val 'owner (getf env 'id)))))
                        (opus-handler env
-                          (success '(p "Entry annihilated with success") "/"))
-                       (fail env 404 "No such blag entry")))
-                  (no-permission env "/"))))
-        (M/\/n\/edit\/([0-9a-zA-Z-]*)/ (ids)
-           (lets
-              ((id (string->id ids))
-               (node (db-get id)))
-              (cond
-                 ((not node)
-                    (fail env 404 "No such blag entry"))
-                 ((unreadable? env node)
-                    (no-permission env "/"))
-                 (else
-                    (opus-handler env
-                       (blag-edit env id node))))))
-        (M/\/login\/?/ ()
-           (respond-opus-login env))
-        (M/\/aoh\/owl.*/ ()
+                         (success (str "Entry " id " created.") 
+                            (str "/n/" id))))))
+               (else
+                 (opus-handler env
+                   (failure '(p "What?") "/")))))
            (opus-handler env
-              '(div ((width "100%") (height "100%") (style "padding: 30%"))
-                  (p "Owl Lisp has migrated to " (a ((href "https://github.com/aoh/owl-lisp")) "https://github.com/aoh/owl-lisp") "."))))
-        (M/\/search/ ()
-           (opus-handler env
-              (content-search env)))
-        (M/\/dialog/ ()
-           (opus-handler env
-              (render-dialog env)))
-        (M/\/robots\.txt/ ()
+             (failure '(p "The computer says " (code "no") ".") "/")))
+       (no-permission env "/"))))
+
+(define (make-router opts)
+   (lambda (env)
+      (lets 
+        ((env
            (-> env
-               (put 'content robots-txt)
-               (put 'response-type "text/plain")))
-        (M/\/crash/ ()
-           (car 'mr-crasher))
-        (M/\/f\/([a-zA-Z0-9._-/]+)/ (path)
-          (maybe-upload env path))
-        (M/(.*)/ (all)
-           (put 
-              (opus-handler env 
-                 (failure '(p "404 WAT") "/"))
-              'status 404)))))
+             (add-response-header 'x-frame-options "SAMEORIGIN")
+             (add-response-header 'X-XSS-Protection "1; mode=block")
+             (add-response-header 'X-Content-Type-Options "nosniff")
+             (add-response-header 'Content-Security-Policy "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'")))
+         (env
+            (if (and ssl-only (localhost? (getf env 'ip)))
+               (add-response-header env 'Strict-Transport-Security "max-age=31536000")
+               env)))
+        (query-case (getf env 'query)
+           (M/\/favicon\.ico/ ()
+              (-> env
+                 (put 'content favicon)
+                 (put 'response-type "image/x-icon")))
+           (M/\// ()
+              (front-handler env))
+           (M/\/index/ ()
+              (opus-handler env (opus-index env "")))
+           (M/\/index\/(.*)/ (tags)
+              (opus-handler env (opus-index env tags)))
+           (M/\/humans\.txt/ ()
+              (-> env
+                 (put 'content humans)
+                 (put 'response-type "text/plain")))
+           (M/\/n\/new/ ()
+              (opus-handler env blag-post-new))
+           (M/\/n\/save/ ()
+               (opus-save env))
+           (M/\/n\/([0-9a-zA-Z-]*)/ (ids)
+              (let ((n (string->id ids)))
+                  (let ((node (db-get n)))
+                     (cond
+                        ((not node)
+                           (not-there env "/"))
+                        ((unreadable? env node)
+                           (opus-handler env
+                             '(p "You can't read this.")))
+                        (else
+                           (blag-entry env n (getf node 'title) 
+                             `(cat ,(post-buttons env n node #false) ,(getf node 'node))
+                             #f))))))
+           (M/\/n\/([0-9a-zA-Z-]*)\.([a-z0-9]+)/ (ids type)
+              (let ((n (string->id ids)))
+                  (let ((node (db-get n)))
+                     (cond
+                        ((not node)
+                           (fail env 404 "No such blag entry"))
+                        ((unreadable? env node)
+                           (fail env 403 "You can't access this."))
+                        ((equal? type "txt")
+                           (-> env
+                              (put 'content (get node 'text ""))
+                              (put 'response-type "text/plain; charset=utf-8")))
+                        ((equal? type "owl")
+                           (-> env
+                              (put 'content (render-node node))
+                              (put 'response-type "text/plain; charset=utf-8")))
+                        (else
+                           (fail env 418 "Semantics lacking."))))))
+           (M/\/n\/delete\/([0-9a-zA-Z-]*)/ (ids)
+              (lets ((n (string->id ids)))
+                  (if (can-delete? (getf env 'id) n)
+                    (let ((node (db-del n)))
+                       (if node
+                          ;; should go to index instead
+                          (opus-handler env
+                             (success '(p "Entry annihilated with success") "/"))
+                          (fail env 404 "No such blag entry")))
+                     (no-permission env "/"))))
+           (M/\/n\/edit\/([0-9a-zA-Z-]*)/ (ids)
+              (lets
+                 ((id (string->id ids))
+                  (node (db-get id)))
+                 (cond
+                    ((not node)
+                       (fail env 404 "No such blag entry"))
+                    ((unreadable? env node)
+                       (no-permission env "/"))
+                    (else
+                       (opus-handler env
+                          (blag-edit env id node))))))
+           (M/\/login\/?/ ()
+              (respond-opus-login env))
+           (M/\/aoh\/owl.*/ ()
+              (opus-handler env
+                 '(div ((width "100%") (height "100%") (style "padding: 30%"))
+                     (p "Owl Lisp has migrated to " (a ((href "https://github.com/aoh/owl-lisp")) "https://github.com/aoh/owl-lisp") "."))))
+           (M/\/search/ ()
+              (opus-handler env
+                 (content-search env)))
+           (M/\/dialog/ ()
+              (opus-handler env
+                 (render-dialog env)))
+           (M/\/robots\.txt/ ()
+              (-> env
+                  (put 'content robots-txt)
+                  (put 'response-type "text/plain")))
+           (M/\/crash/ ()
+              (car 'mr-crasher))
+           (M/\/f\/([a-zA-Z0-9._-/]+)/ (path)
+               (maybe-upload opts env path))
+           (M/(.*)/ (all)
+              (put 
+                 (opus-handler env 
+                    (failure '(p "404 WAT") "/"))
+                 'status 404))))))
 
 (define (add-user id pass)
    (lets
@@ -960,9 +957,11 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
       (log (ip->str (getf env 'ip)) " [" (getf env 'fd) "]: " (getf env 'http-method) " " (getf env 'query) " -> " (get env 'status 200) " (" elapsed "ms)")
       env))
 
-(define (opus env)
-   (lets ((env (add-identity env)))
-      (log-request-info router env)))
+(define (opus opts)
+   (let ((router (make-router opts)))
+      (lambda (env)
+         (lets ((env (add-identity env)))
+            (log-request-info router env)))))
 
 (define (backupper path last)
    (let ((db (get-db)))
@@ -977,7 +976,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
       (backupper path db)))
 
 ;; todo: should run this in a separate thread to kickstart parts as needed
-(define (start port logfile fasl-file user pass)
+(define (start opts port logfile fasl-file user pass)
    ;; blag db
    (start-logging logfile)
    (log "logger started")
@@ -987,7 +986,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
    (fork-linked-server 'backupper (lambda () (backupper fasl-file empty)))
    (start-search)
    (let ((res (if (and user pass) (add-user user pass) #true)))
-      (server 'serveri opus port)
+      (server 'serveri (opus opts) port)
       res))
 
 (define (restart)
@@ -1030,6 +1029,11 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
          n
          #false)))
 
+(define (readable-directory path)
+   (if (dir->list path)
+      path
+      #false))
+
 ;;; 
 ;;; Command Line
 ;;; 
@@ -1043,6 +1047,8 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
      (port "-p" "--port" cook ,string->port
         default "80"
         comment "specify port to run on")
+     (webroot "-w" "--webroot" cook ,readable-directory
+        comment "webroot to serve files from (optional)")
      (ephemereal "-E" "--ephemereal"
         comment "start with empty db and do not persist anything")))
 
@@ -1069,7 +1075,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
             (if (and user pass port)
                (begin
                   (print "Starting ephemereal server on port " port ", user " user ", pass " pass)
-                  (start port #f #f user pass)
+                  (start dict port #f #f user pass)
                   (let loop () (print (wait-mail)) (loop)))
                (begin
                   (print "You need to specify user, password and port")
