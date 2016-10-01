@@ -14,4 +14,4 @@ before_script:
   - "sudo pip install selenium"
   - "export DISPLAY=:99.0"
   - "sh -e /etc/init.d/xvfb start"
-  - sleep 5 # give xvfb some time to start
+#  - sleep 5 # no need to sleep, because build takes a few seconds
