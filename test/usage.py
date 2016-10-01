@@ -238,13 +238,30 @@ see("Hello, world!")
 goto_raw("f/./../.../...../......./........./etc/passwd")
 see_fail()
 
+add_new_blag("pub", "# first public\n#public")
+
 logout()
 see("bye bye")
+
+press("idx")
+see("first public")
+press("first public")
+goto_raw("edit/pub")
+browser.find_element_by_name("op").click()
+see_fail()
+goto_raw("delete/pub")
+see_fail()
+
+goto("user1")
+see_fail()
+goto("user1.owl")
+see_fail()
+goto("user1.txt")
+see_fail()
 
 # add_new_blag("success", "# SUCCCESS\nEverything seems to be in order")
 time.sleep(1)
 
-# see("slartibartfast") # break to see state for new tests
+#see("slartibartfast") # break to see state for new tests
 
-browser.quit()
-
+browser.close()

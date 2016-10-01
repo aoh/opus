@@ -855,8 +855,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                         ((not node)
                            (not-there env "/"))
                         ((unreadable? env node)
-                           (opus-handler env
-                             '(p "You can't read this.")))
+                           (no-permission env "/"))
                         (else
                            (blag-entry env n (getf node 'title) 
                              `(cat ,(post-buttons env n node #false) ,(getf node 'node))
@@ -866,9 +865,9 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                   (let ((node (db-get n)))
                      (cond
                         ((not node)
-                           (fail env 404 "No such blag entry"))
+                           (not-there env "/"))
                         ((unreadable? env node)
-                           (fail env 403 "You can't access this."))
+                           (no-permission env "/"))
                         ((equal? type "txt")
                            (-> env
                               (put 'content (get node 'text ""))
