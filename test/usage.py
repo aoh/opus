@@ -199,10 +199,10 @@ goto("/")
 search("home of")
 nosee("home of")
 # check that user pages cannot be deleted
-goto("/n/delete/user1")
+goto("/delete/user1")
 see_fail()
 # check that the content cannot be opened for editing
-goto("/n/edit/user1")
+goto("/edit/user1")
 see_fail()
 
 add_kal("kalen", "1.1.2048\n - do stuff")

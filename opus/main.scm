@@ -267,7 +267,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
               ,menu-separator
               (a ((href "/index")) "idx")
               ,menu-separator
-              (a ((href "/n/new")) "new")
+              (a ((href "/new")) "new")
               ,menu-separator
               ,(let ((id (getf env 'id)))
                (if id `(a ((href ,(str "/n/" id))) ,(str id))
@@ -320,14 +320,14 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
   (dialog icon-settings "ok" icon-settings "options" 
        (str "What would you like to do to '" (get post 'title "untitled") "'?")
        (dialog-option "read it" (str "/n/" id))
-       (dialog-option "edit it" (str "/n/edit/" id))
+       (dialog-option "edit it" (str "/edit/" id))
        ;(dialog-option "ledit it" (str "/n/ledit/" id))
        (dialog-option "get the source" (str "/n/" id ".txt"))
        (dialog-option "see all metadata" (str "/n/" id ".owl"))
        (subdialog "remove it" "important" icon-confirm "Confirmation required" 
          "Are you sure you want to remove it?" 
          (dialog-option "no" (str "/n/" id))
-         (dialog-option "yes" (str "/n/delete/" id)))
+         (dialog-option "yes" (str "/delete/" id)))
        ))
 
 (define (post-buttons env id post link?)
@@ -339,13 +339,13 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
        ;      (a ((href ,(str "/n/" id))) "&#x21b1;")) ; link &#x21b1; &#128279;
        ;    "")
        ;,separator
-       (a ((href ,(str "/n/edit/" id))) "&#x270e;") ; edit &#x270e;
+       (a ((href ,(str "/edit/" id))) "&#x270e;") ; edit &#x270e;
        ,separator
        ;,(if (getf env 'id)
        ;  '(a ((href "/")) "&#x2605;") ; start (logged in)
        ;  '(a ((href "/login")) "&#x2606;")) ; login (key)
        ;,separator
-       ;(a ((href ,(str "/n/delete/" id))) "&#x2718;")
+       ;(a ((href ,(str "/delete/" id))) "&#x2718;")
        ,(post-options env id post)))
    
 (define (format-post env id post)
@@ -371,7 +371,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
     ((posts (get-db))
      (keys (reverse (keys posts))))
     (if (null? keys)
-      '(a ((href "/n/new")) "create something")
+      '(a ((href "/new")) "create something")
       (cons 'div 
          (list-posts env posts keys 0)))))
 
@@ -428,7 +428,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
 ;; node to post a new blag entry
 (define blag-post-new
    `(div
-      (form ((method "POST") (action "/n/save"))
+      (form ((method "POST") (action "/save"))
         (table ((width "100%"))
           (tr
             (td "Title:" 
@@ -502,7 +502,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
 
 (define (blag-edit env id value)
    `(div
-      (form ((method "POST") (action "/n/save"))
+      (form ((method "POST") (action "/save"))
         (table ((width "100%") (height "100%"))
           (tr
             (td ""
@@ -844,9 +844,9 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
               (-> env
                  (put 'content humans)
                  (put 'response-type "text/plain")))
-           (M/\/n\/new/ ()
+           (M/\/new/ ()
               (opus-handler env blag-post-new))
-           (M/\/n\/save/ ()
+           (M/\/save/ ()
                (opus-save env))
            (M/\/n\/([0-9a-zA-Z-]*)/ (ids)
               (let ((n (string->id ids)))
@@ -879,7 +879,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                               (put 'response-type "text/plain; charset=utf-8")))
                         (else
                            (fail env 418 "Semantics lacking."))))))
-           (M/\/n\/delete\/([0-9a-zA-Z-]*)/ (ids)
+           (M/\/delete\/([0-9a-zA-Z-]*)/ (ids)
               (lets ((n (string->id ids)))
                   (if (can-delete? (getf env 'id) n)
                     (let ((node (db-del n)))
@@ -889,7 +889,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                              (success '(p "Entry annihilated with success") "/"))
                           (fail env 404 "No such blag entry")))
                      (no-permission env "/"))))
-           (M/\/n\/edit\/([0-9a-zA-Z-]*)/ (ids)
+           (M/\/edit\/([0-9a-zA-Z-]*)/ (ids)
               (lets
                  ((id (string->id ids))
                   (node (db-get id)))
@@ -903,10 +903,6 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                           (blag-edit env id node))))))
            (M/\/login\/?/ ()
               (respond-opus-login env))
-           (M/\/aoh\/owl.*/ ()
-              (opus-handler env
-                 '(div ((width "100%") (height "100%") (style "padding: 30%"))
-                     (p "Owl Lisp has migrated to " (a ((href "https://github.com/aoh/owl-lisp")) "https://github.com/aoh/owl-lisp") "."))))
            (M/\/search/ ()
               (opus-handler env
                  (content-search env)))
