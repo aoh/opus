@@ -57,6 +57,9 @@ def noseetag(str):
 def search(str):
    browser.find_element_by_name('q').send_keys(str + Keys.RETURN)
 
+def goto(str):
+   browser.get('http://localhost:9000/n/' + str)
+
 def add_user(name, hash, session):
    browser.find_element_by_link_text('new').click()
    browser.find_element_by_name("id").send_keys(name)
@@ -80,18 +83,20 @@ def fail_add_kal(name, content):
    browser.find_element_by_xpath("//select[@name='type']/option[text()='kal']").click()
    browser.find_element_by_name("op").click()
    see_fail()
-   
+ 
+# login after a few failures
 fail_login("test", "bad")
 fail_login("bad", "pass")
 fail_login("xxx", "xxx")
 login("test", "pass")
 
+# empty search
 search("sisalto")
 see("nothing suitable")
 
+# posting content 
 add_new_blag("testipage", "# testisivu\nsisalto")
 add_new_blag("testi", "# toka testisivu\nsisalto myos")
-
 search("sisalto")
 see("2 matches")
 
@@ -175,13 +180,39 @@ see("ok-note")
 add_user("user2", "a02c5c3f386e38a2547c19e4b0d646bedb5b1ece4b0983a25bdbc8203b9e8eb5", "session2")
 see("ok-note")
 
-add_kal("kalen", "1.1.2016\n - do stuff")
+# check that pages of created users are not visible
+goto("user1")
+nosee("home of")
+goto("user1.txt")
+nosee("home of")
+goto("user1.owl")
+nosee("home of")
+goto("/")
+# check that content of the created users are not searchable
+search("home of")
+nosee("home of")
+# check that user pages cannot be deleted
+goto("/n/delete/user1")
+see_fail()
+
+add_kal("kalen", "1.1.2048\n - do stuff")
+goto("kalen")
+see("do stuff")
+
 fail_add_kal("kalenx", "0.1.2016\n - magic")
 fail_add_kal("kalenx", "1.0.2016\n - magic")
 fail_add_kal("kalenx", "32.1.2016\n - magic")
 fail_add_kal("kalenx", "1.13.2016\n - magic")
-add_kal("kalenx", "every day: foo\n every day: bar")
+goto("kalenx")
+nosee("magic") # 404 is just text, fix later to be an opus page
 
+goto("/") # no links visible after 404 atm
+add_kal("kalenx", "every day: foo\n every day: bar")
+goto("kalenx")
+see("every day")
+see("Monday, week")
+
+# see("slartibartfast") # break to see state for new tests
 
 browser.quit()
 

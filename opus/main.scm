@@ -815,6 +815,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                        (and old-node (has-key? env id))) ;; user has a key for this particular node
                   (if (and data body op serial)
                     (lets ((ok? val (opus-parse-with-semantics env id type body)))
+                      (print "Node result is " val)
                       (cond
                         ((not ok?)
                           (opus-handler env
@@ -826,7 +827,9 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                              (lets
                                 ;; user node adds the owner itself
                                 ((me (getf env 'id))
-                                 (val (put val 'owner (if old-node (get old-node 'owner me) me)))
+                                 (val (if (getf val 'owner)
+                                          val
+                                          (put val 'owner (if old-node (get old-node 'owner me) me))))
                                  (val (put val 'serial serial))
                                  (res (db-put id val)))
                                 (if res
