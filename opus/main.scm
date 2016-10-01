@@ -480,9 +480,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
 (define (opus-parse-with-semantics env id type str)
    (cond
       ((equal? type "kal")
-         ; (print "") (print "Kal input ") (write str) (print "")
          (let ((res (kal-string str)))
-            ; (print "Kal output: ") (write res) (print "")
             (if res
                (opus-parse env res type)
                (values #false "kal fail"))))
@@ -520,12 +518,6 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
               (textarea ((rows 22) (name "body") (autofocus))
                 "\n"
                 ,(str (get value 'text "")))))))))
-
-(define (blag-ledit env id value)
-   (print "ledit " value)
-   `(cat
-      (pre ((id "ledit") (onkeyup "ok(event);") (contenteditable))
-        ,(get value 'text "no content"))))
 
 (define (sorted-nodes posts)
    (sort 
@@ -815,7 +807,6 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                        (and old-node (has-key? env id))) ;; user has a key for this particular node
                   (if (and data body op serial)
                     (lets ((ok? val (opus-parse-with-semantics env id type body)))
-                      (print "Node result is " val)
                       (cond
                         ((not ok?)
                           (opus-handler env
@@ -981,7 +972,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                (log "backupper noticed changes")
                (log " - backup: " (db-save (str "backup/" (time) ".fasl")))
                (log " - fasl: " (db-save path)))
-            (print "backupper would have stored changes")))
+            (log "backupper would have stored changes")))
       (sleep 360000)
       (backupper path db)))
 
@@ -989,7 +980,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
 (define (start port logfile fasl-file user pass)
    ;; blag db
    (start-logging logfile)
-   (print "logger started")
+   (log "logger started")
    (db-start)
    (if fasl-file
       (db-load fasl-file))
@@ -1013,9 +1004,9 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
   (stop-logging)
   (if (db-save blag-fasl-file)
     (begin
-      (print "db saved, stopping server")
+      (log "db saved, stopping server")
       (interact 'serveri stop))
-    (print "FAILED TO SAVE DATA")))
+    (log "ERROR: FAILED TO SAVE DATA AT STOP")))
 
 (print "Collecting symbols...")
 ;; all currently interned symbols
@@ -1030,8 +1021,8 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
 
 (print "Initial symbols: " (length initial-symbols))
 
-(print "And now, (start 80 \"opus.log\" \"blag.fasl\" #f #f) or (restart)")
-(print "Dev run (start 9000 #f #f \"test\" \"pass\") and (restart)")
+; (print "And now, (start 80 \"opus.log\" \"blag.fasl\" #f #f) or (restart)")
+; (print "Dev run (start 9000 #f #f \"test\" \"pass\") and (restart)")
 
 (define (string->port str)
    (let ((n (string->integer str)))
