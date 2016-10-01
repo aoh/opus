@@ -921,6 +921,11 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
               (car 'mr-crasher))
            (M/\/f\/([a-zA-Z0-9._-/]+)/ (path)
                (maybe-upload opts env path))
+           (M/\/logout/ ()
+              (-> env
+                 (del 'id)
+                 (add-response-header "Set-Cookie" (str "sid="))
+                 (opus-handler '(p "bye bye"))))
            (M/(.*)/ (all)
               (put 
                  (opus-handler env 

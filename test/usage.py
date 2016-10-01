@@ -64,6 +64,9 @@ def goto(str):
 def goto_raw(str):
    browser.get('http://localhost:9000/' + str)
    
+def logout():
+   goto_raw("logout")
+
 def add_user(name, hash, session):
    browser.find_element_by_link_text('new').click()
    browser.find_element_by_name("id").send_keys(name)
@@ -235,7 +238,10 @@ see("Hello, world!")
 goto_raw("f/./../.../...../......./........./etc/passwd")
 see_fail()
 
-add_new_blag("success", "# SUCCCESS\nEverything seems to be in order")
+logout()
+see("bye bye")
+
+# add_new_blag("success", "# SUCCCESS\nEverything seems to be in order")
 time.sleep(1)
 
 # see("slartibartfast") # break to see state for new tests
