@@ -38,6 +38,12 @@ def add_new_blag(id, content):
 
 def see(str):
    assert str in browser.page_source
+
+def see_ok():
+   assert "<div class=\"ok-note\">" in browser.page_source
+
+def see_fail():
+   assert "<div class=\"fail" in browser.page_source
    
 def nosee(str):
    assert str not in browser.page_source
@@ -51,6 +57,30 @@ def noseetag(str):
 def search(str):
    browser.find_element_by_name('q').send_keys(str + Keys.RETURN)
 
+def add_user(name, hash, session):
+   browser.find_element_by_link_text('new').click()
+   browser.find_element_by_name("id").send_keys(name)
+   browser.find_element_by_id("ed").send_keys("# home of " + name + "\n#hash:" + hash + " #session:" + session)
+   browser.find_element_by_xpath("//select[@name='type']/option[text()='user']").click()
+   browser.find_element_by_name("op").click()
+   assert "ok-note" in browser.page_source
+
+def add_kal(name, content):
+   browser.find_element_by_link_text('new').click()
+   browser.find_element_by_name("id").send_keys(name)
+   browser.find_element_by_id("ed").send_keys(content)
+   browser.find_element_by_xpath("//select[@name='type']/option[text()='kal']").click()
+   browser.find_element_by_name("op").click()
+   see_ok()
+   
+def fail_add_kal(name, content):
+   browser.find_element_by_link_text('new').click()
+   browser.find_element_by_name("id").send_keys(name)
+   browser.find_element_by_id("ed").send_keys(content)
+   browser.find_element_by_xpath("//select[@name='type']/option[text()='kal']").click()
+   browser.find_element_by_name("op").click()
+   see_fail()
+   
 fail_login("test", "bad")
 fail_login("bad", "pass")
 fail_login("xxx", "xxx")
@@ -138,6 +168,20 @@ seetag("A")
 seetag("B")
 seetag("C")
 nosee("Selected")
+
+add_user("user1", "df6bbacc20a3ce53c6c4f8c787e05feb263e7f7ddbff6c76aa5e7462d890ed5a", "session1")
+see("ok-note")
+
+add_user("user2", "a02c5c3f386e38a2547c19e4b0d646bedb5b1ece4b0983a25bdbc8203b9e8eb5", "session2")
+see("ok-note")
+
+add_kal("kalen", "1.1.2016\n - do stuff")
+fail_add_kal("kalenx", "0.1.2016\n - magic")
+fail_add_kal("kalenx", "1.0.2016\n - magic")
+fail_add_kal("kalenx", "32.1.2016\n - magic")
+fail_add_kal("kalenx", "1.13.2016\n - magic")
+add_kal("kalenx", "every day: foo\n every day: bar")
+
 
 browser.quit()
 

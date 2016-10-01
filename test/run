@@ -5,6 +5,8 @@ fail() {
    exit 1
 }
 
+test -z "$@" && fail "opus startup command needed as argument(s)"
+
 for pid in $(pgrep -f 'ol --run opus')
 do
    kill -9 $pid
