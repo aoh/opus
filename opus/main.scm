@@ -849,35 +849,36 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
            (M/\/save/ ()
                (opus-save env))
            (M/\/n\/([0-9a-zA-Z-]*)/ (ids)
-              (let ((n (string->id ids)))
-                  (let ((node (db-get n)))
-                     (cond
-                        ((not node)
-                           (not-there env "/"))
-                        ((unreadable? env node)
-                           (no-permission env "/"))
-                        (else
-                           (blag-entry env n (getf node 'title) 
-                             `(cat ,(post-buttons env n node #false) ,(getf node 'node))
-                             #f))))))
+              (lets ((n (string->id ids))
+                     (node (db-get n)))
+                  (cond
+                     ((not node)
+                        (not-there env "/"))
+                     ((unreadable? env node)
+                        (no-permission env "/"))
+                     (else
+                        (blag-entry env n (getf node 'title) 
+                          `(cat ,(post-buttons env n node #false) ,(getf node 'node))
+                          #f)))))
            (M/\/n\/([0-9a-zA-Z-]*)\.([a-z0-9]+)/ (ids type)
-              (let ((n (string->id ids)))
-                  (let ((node (db-get n)))
-                     (cond
-                        ((not node)
-                           (not-there env "/"))
-                        ((unreadable? env node)
-                           (no-permission env "/"))
-                        ((equal? type "txt")
-                           (-> env
-                              (put 'content (get node 'text ""))
-                              (put 'response-type "text/plain; charset=utf-8")))
-                        ((equal? type "owl")
-                           (-> env
-                              (put 'content (render-node node))
-                              (put 'response-type "text/plain; charset=utf-8")))
-                        (else
-                           (fail env 418 "Semantics lacking."))))))
+              (lets
+                  ((n (string->id ids))
+                   (node (db-get n)))
+                  (cond
+                     ((not node)
+                        (not-there env "/"))
+                     ((unreadable? env node)
+                        (no-permission env "/"))
+                     ((equal? type "txt")
+                        (-> env
+                           (put 'content (get node 'text ""))
+                           (put 'response-type "text/plain; charset=utf-8")))
+                     ((equal? type "owl")
+                        (-> env
+                           (put 'content (render-node node))
+                           (put 'response-type "text/plain; charset=utf-8")))
+                     (else
+                        (fail env 418 "Semantics lacking.")))))
            (M/\/delete\/([0-9a-zA-Z-]*)/ (ids)
               (lets ((n (string->id ids)))
                   (if (can-delete? (getf env 'id) n)
@@ -886,7 +887,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                           ;; should go to index instead
                           (opus-handler env
                              (success '(p "Entry annihilated with success") "/"))
-                          (fail env 404 "No such blag entry")))
+                          (not-there env "/")))
                      (no-permission env "/"))))
            (M/\/edit\/([0-9a-zA-Z-]*)/ (ids)
               (lets
@@ -894,7 +895,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                   (node (db-get id)))
                  (cond
                     ((not node)
-                       (fail env 404 "No such blag entry"))
+                       (not-there env "/"))
                     ((unreadable? env node)
                        (no-permission env "/"))
                     (else

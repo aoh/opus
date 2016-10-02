@@ -222,7 +222,7 @@ goto("kalenx")
 see("every day")
 see("Monday, week")
 
-# webroot and directory traversal tests
+# webroot and directory traversal tests (don't actually seem to send the requests)
 goto_raw("f/hello.txt")
 see("Hello, world!")
 goto_raw("f/../webroot/hello.txt")
@@ -239,6 +239,15 @@ goto_raw("f/./../.../...../......./........./etc/passwd")
 see_fail()
 
 add_new_blag("pub", "# first public\n#public")
+
+# todo: how to check if popup appears via webdriver?
+add_new_blag("xss", "# <script>alert(42)</script>\n `<script>alert(42)</script>`\n ```<script>alert(42)</script>```\n [<script>alert(42)</script>](<script>alert(42)</script>)\n #<script>alert(42)</script>\n #xss:<script>alert(42)</script>\n")
+goto("xss")
+goto_raw("index")
+
+# todo: check others apis (dialog mainly)
+
+# todo: csrf test from here? separate window and attack via a #public page?
 
 logout()
 see("bye bye")
@@ -258,9 +267,6 @@ goto("user1.owl")
 see_fail()
 goto("user1.txt")
 see_fail()
-
-# add_new_blag("success", "# SUCCCESS\nEverything seems to be in order")
-time.sleep(1)
 
 #see("slartibartfast") # break to see state for new tests
 
