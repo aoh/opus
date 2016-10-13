@@ -17,11 +17,15 @@
       (owl env))
 
    (begin
+     
+      (define kb 1024)
+      (define mb (* kb 1024))
+      (define s 1000)
       
-      (define max-request-time (* 15 1000))
-      (define max-request-size (* 1024 1024))
-      (define max-request-block-size (* 16 1024))
-      (define max-post-length (* 1024 1024))
+      (define max-request-time (* 15 s))
+      (define max-request-size (* 1 mb))
+      (define max-request-block-size (* 8 kb))
+      (define max-post-length (* 1 mb))
 
       (define (block->list block tail)
          (let ((end (sizeb block)))
@@ -194,18 +198,17 @@
       ;; doing string->symbol on all would cause memory leak
       (define (known-header->symbol str)
          (cond
-            ((string-eq? str "Host") 'host)
-            ((string-eq? str "User-Agent") 'user-agent)
-            ((string-eq? str "Referer") 'referer) ;; originally Referrer
-            ((string-eq? str "X-sid") 'x-sid)
-            ((string-eq? str "Cookie") 'cookie)
-            ((string-eq? str "Content-type") 'content-type)
-            ((string-eq? str "Content-length") 'content-length)
-            ((string-eq? str "Content-Length") 'content-length)
-            ((string-eq? str "content-length") 'content-length)
-            ((string-eq? str "Accept-Language") 'accept-language)
-            ((string-eq? str "Accept") 'accept) ;; text/html, text/plain, ...
-            ((string-eq? str "Accept-Encoding") 'accept-encoding)
+            ((string-ci=? str "Host") 'host)
+            ((string-ci=? str "User-Agent") 'user-agent)
+            ((string-ci=? str "Referer") 'referer) ;; originally Referrer
+            ((string-ci=? str "Origin") 'origin) ;; Origin > Referer, https://wiki.mozilla.org/Security/Origin
+            ((string-ci=? str "X-sid") 'x-sid)
+            ((string-ci=? str "Cookie") 'cookie)
+            ((string-ci=? str "Content-type") 'content-type)
+            ((string-ci=? str "Content-length") 'content-length)
+            ((string-ci=? str "Accept-Language") 'accept-language)
+            ((string-ci=? str "Accept") 'accept) ;; text/html, text/plain, ...
+            ((string-ci=? str "Accept-Encoding") 'accept-encoding)
             (else #false)))
 
       (define (drop-space lst)

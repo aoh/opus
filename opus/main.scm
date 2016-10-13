@@ -1,5 +1,7 @@
 #!/usr/bin/ol --run
 
+;; add post origin/referer check
+
 (import
   (opus http)
   (opus html)
@@ -187,7 +189,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
 ;; find val from get or post params (or maybe header)
 (define (request-param env val)
    (or
-      (alist-ref (get env 'get-params null) val #false)
+      ;(alist-ref (get env 'get-params null) val #false)
       (alist-ref (get env 'post-params null) val #false)))
 
 (define (carriables lst ret)
@@ -827,7 +829,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
              (add-response-header 'Content-Security-Policy "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'")))
          (env
             (if (and ssl-only (localhost? (getf env 'ip)))
-               (add-response-header env 'Strict-Transport-Security "max-age=31536000")
+               (add-response-header env 'Strict-Transport-Security "max-age=31536000; includeSubDomains")
                env)))
         (query-case (getf env 'query)
            (M/\/favicon\.ico/ ()
@@ -928,6 +930,27 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                     (failure '(p "404 WAT") "/"))
                  'status 404))))))
 
+(define (match-prefix lst pre)
+   (cond
+      ((null? pre) #true)
+      ((null? lst) #false)
+      ((eq? (car pre) (car lst))
+         (match-prefix (cdr lst) (cdr pre)))
+      (else #false)))
+
+;; check that origin (or referer if not present) has as prefix one of the given values
+(define (wrap-csrf settings handler)
+   (let ((origins (map string->list (get settings 'origin null))))
+      (lambda (env)
+         (if (eq? (getf env 'http-method) 'post)
+            (let ((origin (get env 'origin (getf env 'referer))))
+               (if (and origin (let ((cs (string->list origin))) (some (lambda (x) (match-prefix cs x)) origins)))
+                  (handler env)
+                  (begin
+                     (log "CSRF: dropping POST to " (getf env 'query) " from source " origin)
+                     (no-permission env "/"))))
+            (handler env)))))
+         
 (define (add-user id pass)
    (lets
       ((hash (salty-hash id pass))
@@ -987,7 +1010,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
    (fork-linked-server 'backupper (lambda () (backupper fasl-file empty)))
    (start-search)
    (let ((res (if (and user pass) (add-user user pass) #true)))
-      (server 'serveri (opus opts) port)
+      (server 'serveri (wrap-csrf opts (opus opts)) port)
       res))
 
 (define (restart)
@@ -1045,6 +1068,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
    `((help "-h" "--help" comment "get help")
      (user "-U" "--user" has-arg comment "initial user name")
      (password "-P" "--password" has-arg comment "initial user password")
+     (origin "-o" "--origin" plural has-arg comment "origin or referer from which to accept POST requests, e.g. http://myserver.com/")
      (port "-p" "--port" cook ,string->port
         default "80"
         comment "specify port to run on")
