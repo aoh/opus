@@ -427,8 +427,11 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
             session-id 
             (getf env 'sid)))))
 
+(define (salty-double-cookie env addon)
+   (sha256 (str addon (get env 'sid "") addon)))
+
 ;; node to post a new blag entry
-(define blag-post-new
+(define (blag-post-new env)
    `(div
       (form ((method "POST") (action "/save"))
         (table ((width "100%"))
@@ -443,6 +446,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                   (option ((value "kal")) "kal")))
             (td ((style "text-align: right;"))
               (input ((type "hidden") (name "serial") (value 0)))
+              (input ((type "hidden") (name "csrf") (value ,(salty-double-cookie env 0))))
               (input ((type "submit") (class "btn") (name "op") (value "save")))))
           (tr
             (td ((colspan 3))
@@ -502,6 +506,8 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
          (print "Unknown semantics: " type)
          (values #false "Weird type"))))
 
+
+
 (define (blag-edit env id value)
    `(div
       (form ((method "POST") (action "/save"))
@@ -515,7 +521,9 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
               ;(input ((class "btn") (type "submit") (name "op") (value "peek")))
               (input ((type "hidden") (name "id") (value ,(str id))))
               (input ((type "hidden") (name "type") (value ,(get value 'type "blag"))))
-              (input ((type "hidden") (name "serial") (value ,(get value 'serial 0))))))
+              (input ((type "hidden") (name "serial") (value ,(get value 'serial 0))))
+              (input ((type "hidden") (name "csrf") (value ,(salty-double-cookie env (get value 'serial 0)))))
+              ))
           (tr
             (td ((colspan 2))
               (textarea ((rows 22) (name "body") (autofocus))
@@ -775,11 +783,14 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
         (op (if data (alist-ref data "op" #false) #false))
         (type (if data (alist-ref data "type" #false) #false))
         (id (string->id (if data (alist-ref data "id" "") "")))
+        (csrf (if data (alist-ref data "csrf" #false) #false))
         (serial (string->number (if data (alist-ref data "serial" "") "")))
         (old-node (db-get id)))
-      (if (or (and (not old-node) (getf env 'id)) ;; any logged in user can create
-              (and old-node (eq? (getf env 'id) (getf old-node 'owner))) ;; owner can write
-              (and old-node (has-key? env id))) ;; user has a key for this particular node
+      (if (and (equal? (salty-double-cookie env serial) csrf)
+             (or (and (not old-node) (getf env 'id)) ;; any logged in user can create
+                 (and old-node (eq? (getf env 'id) (getf old-node 'owner))) ;; owner can write
+                 (and old-node (has-key? env id)) ;; user has a key for this particular node
+              ))
          (if (and data body op serial)
            (lets ((ok? val (opus-parse-with-semantics env id type body)))
              (cond
@@ -816,7 +827,9 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                    (failure '(p "What?") "/")))))
            (opus-handler env
              (failure '(p "The computer says " (code "no") ".") "/")))
-       (no-permission env "/"))))
+       (begin
+          (log "No permission to save " id " from " (getf env 'ip))
+          (no-permission env "/")))))
 
 (define (make-router opts)
    (lambda (env)
@@ -847,7 +860,7 @@ hr         { border: 0; height: 0; border-top: solid 2px rgba(128, 128, 128, 0.1
                  (put 'content humans)
                  (put 'response-type "text/plain")))
            (M/\/new/ ()
-              (opus-handler env blag-post-new))
+              (opus-handler env (blag-post-new env)))
            (M/\/save/ ()
                (opus-save env))
            (M/\/n\/([0-9a-zA-Z-]*)/ (ids)
