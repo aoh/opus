@@ -33,3 +33,7 @@ sure:
 
 verysure: bin/opus
 	test/run bin/opus
+
+install: bin/opus
+	install -m 755 bin/opus /usr/bin
+
